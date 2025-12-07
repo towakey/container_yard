@@ -246,46 +246,92 @@ def insert_csv_data(table_name, data):
         conn.close()
 
 def get_import_tables():
-    """インポート用テーブルの一覧を取得"""
-    conn = get_connection()
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute('SELECT * FROM import_tables ORDER BY created_at DESC')
-    rows = cursor.fetchall()
-    
-    conn.close()
-    
-    results = []
-    for row in rows:
-        result = dict(row)
-        # columnsをJSONから辞書に変換
-        if result.get('columns'):
-            try:
-                result['columns'] = json.loads(result['columns'])
-            except:
-                result['columns'] = []
-        results.append(result)
-    
-    return results
-
-def get_table_data(table_name, limit=100):
-    """指定テーブルのデータを取得"""
-    conn = get_connection()
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
+    """インポートされたテーブルの一覧を取得"""
     try:
-        cursor.execute(f'SELECT * FROM {table_name} LIMIT ?', (limit,))
-        rows = cursor.fetchall()
+        conn = get_connection()
+        cursor = conn.cursor()
         
-        results = [dict(row) for row in rows]
-        return results
-    except Exception as e:
-        print(f"データ取得エラー: {e}", file=sys.stderr)
-        return []
-    finally:
+        # import_tablesテーブルからテーブル情報を取得
+        cursor.execute("""
+            SELECT table_name, created_at 
+            FROM import_tables 
+            ORDER BY created_at DESC
+        """)
+        
+        tables = cursor.fetchall()
+        
+        # テーブルごとの詳細情報を取得
+        result = []
+        for table_name, created_at in tables:
+            # テーブルが存在するか確認
+            cursor.execute("""
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name=?
+            """, (table_name,))
+            
+            if cursor.fetchone():
+                # カラム情報を取得
+                cursor.execute(f"PRAGMA table_info({table_name})")
+                columns = cursor.fetchall()
+                
+                # レコード数を取得
+                cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                record_count = cursor.fetchone()[0]
+                
+                result.append({
+                    'table_name': table_name,
+                    'created_at': created_at,
+                    'record_count': record_count,
+                    'columns': [{'name': col[1], 'type': col[2]} for col in columns]
+                })
+        
         conn.close()
+        return result
+        
+    except Exception as e:
+        print(f"テーブル一覧取得エラー: {e}", file=sys.stderr)
+        return []
+
+def get_table_data(table_name, limit=100, offset=0):
+    """指定されたテーブルのデータを取得"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # テーブル名を検証（import_tablesに存在するか）
+        cursor.execute("""
+            SELECT table_name FROM import_tables 
+            WHERE table_name=?
+        """, (table_name,))
+        
+        if not cursor.fetchone():
+            conn.close()
+            return None, None, 0
+        
+        # カラム情報を取得
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        columns = cursor.fetchall()
+        column_names = [col[1] for col in columns]
+        
+        # データを取得
+        cursor.execute(f"""
+            SELECT * FROM {table_name} 
+            ORDER BY rowid 
+            LIMIT ? OFFSET ?
+        """, (limit, offset))
+        
+        data = cursor.fetchall()
+        
+        # 総件数を取得
+        cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+        total_count = cursor.fetchone()[0]
+        
+        conn.close()
+        return column_names, data, total_count
+        
+    except Exception as e:
+        print(f"テーブルデータ取得エラー: {e}", file=sys.stderr)
+        return None, None, 0
 
 # データベース初期化
 if __name__ == '__main__':
