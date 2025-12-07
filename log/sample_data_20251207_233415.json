@@ -1,0 +1,35 @@
+{
+  "table_name": "employees",
+  "csv_settings": {
+    "encoding": "utf-8",
+    "delimiter": ",",
+    "has_header": true
+  },
+  "column_mappings": [
+    {
+      "csv_column": "ID",
+      "db_column": "id",
+      "data_type": "INTEGER"
+    },
+    {
+      "csv_column": "名前",
+      "db_column": "name",
+      "data_type": "TEXT"
+    },
+    {
+      "csv_column": "年齢",
+      "db_column": "age",
+      "data_type": "INTEGER"
+    },
+    {
+      "csv_column": "部署",
+      "db_column": "department",
+      "data_type": "TEXT"
+    },
+    {
+      "csv_column": "入社日",
+      "db_column": "hire_date",
+      "data_type": "TEXT"
+    }
+  ]
+}
