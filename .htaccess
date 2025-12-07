@@ -1,0 +1,7 @@
+Options +ExecCGI
+AddHandler cgi-script .py
+DirectoryIndex index.py
+
+# Allows running Python scripts without a shebang line on Windows
+# Requires Python to be correctly registered in Windows Registry
+ScriptInterpreterSource Registry
